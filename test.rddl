@@ -1,0 +1,56 @@
+domain warmup_domain {
+
+
+    requirements = {
+          integer-valued,
+          multivalued,
+          intermediate-nodes
+    };
+
+
+    pvariables {
+
+        // @@@@@@@ CONSTANTS @@@@@@@
+        NON_P : { non-fluent, real, default = 0 };
+        LOW_P : { non-fluent, real, default = 0 };
+        MED_P : { non-fluent, real, default = 0 };
+        HIGH_P : { non-fluent, real, default = 0 };
+        P1 : { non-fluent, real, default = 0 };
+        P2 : { non-fluent, real, default = 0 };
+
+        // @@@@@@@ TOPOLOGY CONSTANTS @@@@@@@
+
+
+        // @@@@@@@ STATES @@@@@@@
+        hunger : { state-fluent, int, default = 0 };
+        alive : {state-fluent, bool, default = true };
+
+        // @@@@@@@ ACTIONS @@@@@@@
+        medicate : {action-fluent, bool , default = false};
+
+        // @@@@@@@ INTERMEDIATE VARIABLES @@@@@@@
+        food :  {interm-fluent, int, level = 1};
+        eats :  {interm-fluent, int, level = 1};
+        energy_waste : {interm-fluent, int, level = 1};
+    };
+
+    cpfs {
+        food = Bernoulli(.8) + Bernoulli(.2) + Bernoulli(.4);
+        eats =  food + Bernoulli(.8);
+
+        energy_waste = Bernoulli(.7) * 5 ;
+
+        hunger' = if (alive ^ medicate) then (hunger - eats + energy_waste - 5) else (hunger - eats + energy_waste);
+
+        alive' = if (hunger > 50) then false
+                 else if ((hunger < 5) ^ medicate) then false
+                 else if (~alive) then false
+                 else if ((hunger > 45) ^ (~medicate)) then false
+                 else true;
+    };
+
+    reward = 5;
+
+
+
+}

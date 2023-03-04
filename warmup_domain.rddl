@@ -1,0 +1,74 @@
+domain warmup_domain {
+
+    requirements = {
+          integer-valued,
+          multivalued,
+          intermediate-nodes,
+          reward_deterministic,
+
+    };
+
+    types {
+        train : object;
+        station : object;
+	};
+
+    pvariables {
+
+        // @@@@@@@ CONSTANTS @@@@@@@
+        R(train, station) : { non-fluent, int, default = 0 } //base running time of 'train' from 'station' to the next.
+        S(train, station) : { non-fluent, int, default = 0 } //base staying time of 'train' in 'station'.
+        beta(station) : {non-fluent, int, default = 0} //time for 1 passenger to board a train in 'station'.
+        alpha(station) : {non-fluent, int, default = 0} //time for 1 passenger to alight from a train in 'station'.
+        U_MIN ..
+        U_MAX ..
+
+
+        // @@@@@@@ TOPOLOGY CONSTANTS @@@@@@@
+        NEXT(station, station) = { non-fluent, bool, default = false }  // true if second is next to first topologically.
+        TRAIN_CAPACITY(train) = { non-fluent, int, default = 10 }  // capacity of each train
+        STATION_CAPACITY(station) = { non-fluent, int, default = 100 }  // capacity of each station
+
+        // @@@@@@@ STATES @@@@@@@
+        t(train, station) : { state-fluent, int, default = 0 }  // departure time of 'train' from 'station'.
+        l(train, station) : { state-fluent, int, default = 0 }  // total load in 'train' when its departed from 'station'.
+        r(train, station) : { state-fluent, int, default = 0 }  // total running time of 'train' from 'station' to the next.
+        s(train, station) : { state-fluent, int, default = 0 }  // total staying time of 'train' in 'station'.
+        a(train, station) : { state-fluent, int, default = 0 } // total passengers alighting from 'train' in 'station'.
+        b(train, station) : { state-fluent, int, default = 0 } // total passengers boarding to 'train' in 'station'.
+        p(train, station) : { state-fluent, int, default = 0 } // number of passengers restricted from boarding 'train' in 'station'.
+        T(train,station) :  { state-fluent, int, default = 0 }  // base departure time of 'train' from 'station'.
+        L(train, station) : { state-fluent, int, default = 0 }  // base load of 'train' when departed from 'station'.
+        e(train,station) : { state-fluent, int, default = 0 }  // t-T
+        delta(train,station) : { state-fluent, int, default = 0 }  // l-L
+
+
+        // @@@@@@@ ACTIONS @@@@@@@
+        u(train, station) : { action-fluent, int, default = 0 }  // action: time added from base running time R (negative u means speed up).
+
+
+        // @@@@@@@ INTERMEDIATE VARIABLES @@@@@@@
+        wr(train, station) : { interm-fluent, int, default = 0 }  // disturbances in r (running time).
+        ws(train, station) : { interm-fluent, int, default = 0 }  // disturbances in s (staying time).
+        d(train, station) : { interm-fluent, int, default = 0 }  // disturbances in b caused by previous train (boarding number).
+        lambda(train, station) : { interm-fluent, int, default = 0 } // arrival rate of passengers to 'station' in the time interval since previous train departed until 'train' departed.
+        eta(train , station) : {interm-fluent, int, default = 0 } // proportion of alighting passengers from 'train' in 'station' relative to the load of it as it was calculated in the previous station.
+        v(train, station) : {interm-fluent, int, default = 0 } // passenger control input
+
+
+
+    };
+
+    cpfs {
+        t'(?train,?station)
+    };
+
+    reward = ;
+
+    state-invariants {
+    };
+
+    action-preconditions {
+    };
+
+}

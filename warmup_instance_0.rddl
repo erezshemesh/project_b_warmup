@@ -1,0 +1,28 @@
+non-fluents warmup_non_fluents {
+    domain = warmup_domain;
+
+	non-fluents {
+	    NON_P = 0.1;
+        LOW_P = 0.2;
+        MED_P = 0.3;
+        HIGH_P = 0.4;
+	};
+
+}
+
+instance warmup_instance {
+
+	domain = warmup_domain;
+
+	non-fluents = warmup_non_fluents;
+
+	init-state {
+	    alive = true;
+	    hunger = 17;
+	};
+
+	max-nondef-actions = 1;
+
+	horizon  = 40;
+	discount = 1.0;
+}
