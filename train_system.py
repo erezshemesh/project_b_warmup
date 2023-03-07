@@ -1,6 +1,9 @@
 from generator import *
 import random
 
+
+
+
 class TrainSystem:
 
     def __init__(self, T, L, P, gen: Generator):
@@ -29,88 +32,75 @@ class TrainSystem:
         self.load_before_alight = np.zeros(gen.trains)
         self.platform = np.zeros(gen.stations)
         self.agent_speed = np.zeros(gen.trains)
+    
+    
+    def Wait(self, train, epoch):
+        max_wait =  self.start_time[train] - self.time
+        if epoch > max_wait:
+            self.Load(train, epoch - max_wait)
         
+     
+    def Load(self,train,effective_epoch):
+        self.states[train].state = states.LOADING
+        if(effective_epoch>0):
+            station=self.states[train].station
+            potential_load = min(effective_epoch/ self.gen.beta[station], self.gen.lmax - self.load[train])
+            self.load[train] += min(potential_load , self.platform[station])
+            if potential_load < self.platform[station]:
+                self.platform[station] -= potential_load
+                if self.load[train] == self.gen.lmax:
+                    loading_time=(potential_load * self.gen.beta[station])
+                    self.Move(train, effective_epoch - loading_time)
+            else:
+                loading_time = (self.platform[station] * self.gen.beta[station])
+                self.platform[station] = 0
+                self.Move(train,effective_epoch - loading_time)
         
-        
-    def loadFunc(self,train,station,potential_load,shift):   
-        if potential_load < self.platform[station]:
-            self.load[train] = self.load[train] + potential_load
-            self.platform[station] = self.platform[station] - potential_load
-            if self.load[train] == self.gen.lmax:
-                self.states[train].state = states.MOVING
-                self.location[train] = self.location[train] +((epoch-shift) - (potential_load * self.gen.beta[station])) * self.gen.speed_kmh / 3600
-        else:
-            self.load[train] = self.load[train] + self.platform[station]
-            self.platform[station] = 0
-            self.states[train].state = states.MOVING
-            self.location[train] = self.location[train] + ((epoch-shift) - (self.platform[station] * self.gen.beta[station])) * self.gen.speed_kmh / 3600
-
+                
+    def Unload(self,train,effective_epoch):
+        self.states[train].state = states.UNLOADING #maybe it should be outside, think about it later
+        if(effective_epoch>0):
+            station = self.states[train].station
+            potential_unload = effective_epoch / self.gen.alpha[station]
+            max_unload = self.load[train] - self.load_before_alight[train] * (1 - self.gen.eta[train, station])
+            self.load[train] = min(potential_unload, max_unload)
+            if potential_unload >= max_unload:
+                self.Load(train,effective_epoch - max_unload * self.gen.alpha[station])
+                
+    
+    def Move(self,train,effective_epoch):
+        self.states[train].state = states.MOVING
+        if(effective_epoch>0):
+            potential_move = effective_epoch * self.gen.speed_kmh / units.hour
+            max_move = (10 - (self.location[train]) % 10)
+            moving_distance = min(potential_move,max_move) * self.gen.speed_kmh / units.hour
+            moving_time = (moving_distance / self.gen.speed_kmh) * units.hour
+            self.location[train] += moving_distance
+            if potential_move >= max_move:
+                self.states[train].station += 1
+                self.load_before_alight[train] = self.load[train]
+                self.Unload(train,effective_epoch-moving_time)
+                
     def advance(self , epoch = 60 , noise = 0):
         self.time = self.time + epoch
         for i in range(self.gen.stations):
             self.platform[i] = self.platform[i] + (self.gen.lambda_[i] + noise * random.uniform(-0.3,20)) * epoch
         for train in range(self.gen.trains):
-                       
-            # CASE 0 - finished
+            # CASE 0 - Finished
             if (self.states[train].state == states.MOVING and self.states[train].station == self.gen.stations - 1):
                 self.states[train].state = states.FINISHED
-                
-                
-            # CASE 1 - initial
-            elif (self.states[train].state == states.WAITING_FOR_FIRST_DEPART) and (self.start_time[train] < self.time):
-                self.states[train].state = states.LOADING
-                potential_load = min((self.time - self.start_time[train]) / self.gen.beta[0],
-                                     self.gen.lmax - self.load[train])
-                if potential_load < self.platform[0]:
-                    self.load[train] = potential_load
-                    self.platform[0] = self.platform[0] - potential_load
-                else:
-                    self.load = self.platform[0]
-                    self.states[train].state = states.MOVING
-                    self.location[train] = (epoch - (self.platform[0] * self.gen.beta[0])) * self.gen.speed_kmh / 3600
-                    self.platform[0] = 0
+            elif (self.states[train].state == states.WAITING_FOR_FIRST_DEPART):
+                self.Wait(train,epoch)
             # CASE 2 - loading
-            elif self.states[train].state == states.LOADING:
-                s = self.states[train].station
-                potential_load = min(epoch / self.gen.beta[s], self.gen.lmax - self.load[train])
-                self.loadFunc(train,s,potential_load,0)
-            # CASE 3 - unloading
+            elif (self.states[train].state == states.LOADING):
+                self.Load(train,epoch)
+            # CASE 3 - Unloading
             elif self.states[train].state == states.UNLOADING:
-                s = self.states[train].station
-                potential_unload = epoch / self.gen.alpha[s]
-                if self.load[train] - potential_unload > self.load_before_alight[train] * (1 - self.gen.eta[train, s]):
-                    self.load[train] = self.load[train] - potential_unload
-                else:
-                    self.load[train] = self.load_before_alight[train] * (1 - self.gen.eta[train, s])
-                    unloading_time = (self.load[train] - (self.load_before_alight[train] * (1 - self.gen.eta[train, s]))) * self.gen.alpha[s]
-                    self.states[train].state = states.LOADING
-                    loading_time=(epoch - unloading_time)
-                    potential_load = min((loading_time/ self.gen.beta[s]), self.gen.lmax - self.load[train])
-                    self.loadFunc(train,s,potential_load,unloading_time)
-                    
-            # CASE 4 - MOVING
+                self.Unload(train,epoch)
+            # CASE 4 - Moving
             elif self.states[train].state == states.MOVING:
-                potential_move = epoch * self.gen.speed_kmh / 3600
-                if potential_move < (10 - (self.location[train]) % 10):
-                    self.location[train] = self.location[train] + potential_move
-                else:
-                    moving_time = ((10 - (self.location[train]) % 10) / self.gen.speed_kmh) * 3600 
-                    self.location[train] = self.location[train] + 10 - (self.location[train]) % 10  
-                    self.states[train].station = self.states[train].station + 1 
-                    self.states[train].state = states.UNLOADING
-                    self.load_before_alight[train] = self.load[train]
-                    s = self.states[train].station 
-                    potential_unload = (epoch - moving_time) / self.gen.alpha[s]
-                    
-                    if potential_unload < self.load_before_alight[train] * self.gen.eta[train, s]:
-                        self.load[train] = self.load[train] - potential_unload
-                    else:
-                        unloading_time = (self.load_before_alight[train] * self.gen.eta[train, s]) * self.gen.alpha[s]
-                        self.load[train] = self.load_before_alight[train] * (1 - self.gen.eta[train, s])
-                        self.states[train].state = states.LOADING #change current state to loading
-                        potential_load = min((epoch - unloading_time - moving_time) / self.gen.beta[s],self.gen.lmax - self.load[train])
-                        timing_shift=unloading_time - moving_time
-                        self.loadFunc(train,s,potential_load,timing_shift)
+                self.Move(train,epoch)
+                
 
 
 T = np.array([[43826, 47386, 50546, 53706],
@@ -153,20 +143,20 @@ gen = Generator(
 
 sys = TrainSystem(T, L, P, gen)
 noise = False
-file1 = open("new_output.txt","w")
 for i in range(1):
     x = 0
     for t in range(600000):
-        epoch = 100
+        epoch = 10
         train = 1
         a = sys.states[train].state
         st = "WAITING FOR FIRST DEPART" if a == 0 else (
             "UNLOADING" if a == 1 else (
                 "LOADING" if a == 2 else ("MOVING" if a == 3 else ("FINISHED" if a == 4 else "ERROR"))))
         if (st == "MOVING" and x == sys.states[train].station) or True:
-            print(t, ": time: ", sys.time, ", location: ", int(sys.location[train]), ", load: ", int(sys.load[train]),f", platform{sys.states[train].station}: ",
+            print(t, ": time: ", sys.time, ", location: ", int(sys.location[train]), ", load: ", int(sys.load[train]),
+                  f", platform{sys.states[train].station}: ",
                   int(sys.platform[sys.states[train].station]), ", state: ", st, ", station: ",
-                  sys.states[train].station,file=file1)
+                  sys.states[train].station)
             x = x + 1
         if st != "FINISHED":
             sys.advance(epoch , noise)
@@ -175,4 +165,3 @@ for i in range(1):
             break;
     sys.reset()
     noise = True
-file1.close()
