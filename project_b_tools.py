@@ -51,8 +51,17 @@ class States:
         self.MOVING = 3
         self.FINISHED = 4
 
+class Units:
+
+    def __init__(self):
+        self.hour = 3600
+        self.minute = 60
+        self.second = 1
+
+
 
 states = States()
+units = Units()
 
 
 class TrainState:
