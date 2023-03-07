@@ -1,6 +1,7 @@
 from generator import *
 import random
 
+
 class TrainSystem:
 
     def __init__(self, T, L, P, gen: Generator):
@@ -126,7 +127,7 @@ class TrainSystem:
                             self.load[train] = self.load[train] + self.platform[s]
                             self.states[train].state = states.MOVING
                             self.location[train] = self.location[train] + (epoch - (self.platform[s] * self.gen.beta[s])) * self.gen.speed_kmh / 3600
-                            self.platform[s] = 0
+                            self.platform[s] = 
 
 
 T = np.array([[43826, 47386, 50546, 53706],
