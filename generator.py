@@ -1,5 +1,6 @@
 from project_b_tools import *
 
+
 class Generator:
 
     def __init__(self,
@@ -29,7 +30,6 @@ class Generator:
         self.beta = random((t_board_per_person / number_of_carts), var, stations)
         self.lambda_ = random(platform_arrivals_per_t, var, stations)
         self.eta = random(alight_fraction, var, trains, stations)
-        print(self.eta)
         self.R = random(run_t, var, trains, stations)
         self.S = random(stop_t, var, trains, stations)
         self.tmin = tmin
@@ -45,8 +45,9 @@ class Generator:
                 self.P.reshape(self.P.size)
             )
         )
-        self.open_time = np.array([to_sec('06:00:00') + to_sec('00:10:00') * j for j in range(self.stations)])
-        self.close_time = np.array([to_sec('23:59:59') - to_sec('00:10:00') * (self.stations - 1 - j) for j in range(self.stations)])
+        self.open_time = np.array([to_sec('06:00:00') + run_t * j for j in range(self.stations)])
+        self.close_time = np.array(
+            [to_sec('23:59:59') - run_t * (self.stations - 1 - j) for j in range(self.stations)])
         self.sol = None
 
     def extract(self, V, name='all'):
@@ -258,14 +259,14 @@ class Generator:
             for station in range(0, self.stations)]
         P_rule = [item for sublist in P_rule for item in sublist]
 
-        first_T = [{'type': 'ineq', 'fun': lambda x, station=station: self.first_T(x, station)} for station in range(self.stations)]
-        last_T = [{'type': 'ineq', 'fun': lambda x, station=station: self.Last_T(x, station)} for station in range(self.stations)]
-
-
+        first_T = [{'type': 'ineq', 'fun': lambda x, station=station: self.first_T(x, station)} for station in
+                   range(self.stations)]
+        last_T = [{'type': 'ineq', 'fun': lambda x, station=station: self.Last_T(x, station)} for station in
+                  range(self.stations)]
 
         return first_T + train_dt + station_dt + T_rule + L_rule + P_rule + last_T
 
-    def assert_results(self, Vsol, min_error = 0):
+    def assert_results(self, Vsol, min_error=0):
         Tsol, Lsol, Psol = self.extract(Vsol)
         for i in range(self.trains):
             for j in range(self.stations):
@@ -282,16 +283,14 @@ class Generator:
                 if not (abs(self.T_rule(Vsol, i, j)) <= min_error):
                     if j == 0:
                         if not (self.T_rule(Vsol, i, j) >= -min_error):
-                            print(f"T[{i},{j}] = {Tsol[i, j]} instead of at least {Tsol[i, j] - self.T_rule(Vsol, i, j)}")
+                            print(
+                                f"T[{i},{j}] = {Tsol[i, j]} instead of at least {Tsol[i, j] - self.T_rule(Vsol, i, j)}")
                     else:
-                        print(f"T[{i},{j}] = {Tsol[i, j]} instead of {Tsol[i, j] - self.T_rule(Vsol, i , j)}")
+                        print(f"T[{i},{j}] = {Tsol[i, j]} instead of {Tsol[i, j] - self.T_rule(Vsol, i, j)}")
                 if not (abs(self.L_rule(Vsol, i, j)) <= min_error):
-                    print(f"L[{i},{j}] = {Lsol[i, j]} instead of {Lsol[i, j] - self.L_rule(Vsol, i , j)}")
+                    print(f"L[{i},{j}] = {Lsol[i, j]} instead of {Lsol[i, j] - self.L_rule(Vsol, i, j)}")
                 if not (abs(self.P_rule(Vsol, i, j)) <= min_error):
-                    print(f"P[{i},{j}] = {Psol[i, j]} instead of {Psol[i, j] - self.P_rule(Vsol, i , j)}")
-
-
-
+                    print(f"P[{i},{j}] = {Psol[i, j]} instead of {Psol[i, j] - self.P_rule(Vsol, i, j)}")
 
     def assert_results2(self, Vsol):
         Tsol, Lsol, Psol = self.extract(Vsol)
@@ -300,4 +299,3 @@ class Generator:
                 assert (self.min_valid_L(Vsol, i, j) >= 0 and self.max_valid_L(Vsol, i, j) >= 0)
                 assert (self.min_valid_T(Vsol, i, j) >= 0 and self.max_valid_T(Vsol, i, j) >= 0)
                 assert (self.min_valid_P(Vsol, i, j) >= 0 and self.max_valid_P(Vsol, i, j) >= 0)
-
