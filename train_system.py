@@ -19,6 +19,7 @@ class TrainSystem:
         self.platform = np.zeros(gen.stations)
         self.agent_speed = np.zeros(gen.trains)
         self.start_time = [T[train, 0] - L[train, 0] * self.gen.beta[0] for train in range(self.gen.trains)]
+        self.step_reward = 0
 
     def reset(self):
         self.time = 21600  # 6:00AM
@@ -64,17 +65,21 @@ class TrainSystem:
 
     def Move(self, train, effective_epoch):
         self.states[train].state = states.MOVING
+        self.speed_rewarding(train,effective_epoch)
         speed = (self.gen.speed_kmh / units.hour) + self.agent_speed[train]
-        if effective_epoch > 0:
-            potential_move = effective_epoch * speed
-            max_move = (10 - (self.location[train]) % 10)
-            moving_distance = min(potential_move, max_move)
-            moving_time = moving_distance / speed
-            self.location[train] += moving_distance
-            if potential_move >= max_move:
-                self.states[train].station += 1
-                self.load_before_alight[train] = self.load[train]
-                self.Unload(train, effective_epoch - moving_time)
+        if(self.states[train].station==self.gen.stations-1):
+            self.states[train].state = states.FINISHED
+        else:
+            if effective_epoch > 0:
+                potential_move = effective_epoch * speed
+                max_move = (10 - (self.location[train]) % 10)
+                moving_distance = min(potential_move, max_move)
+                moving_time = moving_distance / speed
+                self.location[train] += moving_distance
+                if potential_move >= max_move:
+                    self.states[train].station += 1
+                    self.load_before_alight[train] = self.load[train]
+                    self.Unload(train, effective_epoch - moving_time)
 
     def step(self, epoch=60, noise=0):
         self.time = self.time + epoch
@@ -85,6 +90,7 @@ class TrainSystem:
             # CASE 0 - Finished
             if self.states[train].state == states.MOVING and self.states[train].station == self.gen.stations - 1:
                 self.states[train].state = states.FINISHED
+                print("Train")
             elif self.states[train].state == states.WAITING_FOR_FIRST_DEPART:
                 self.Wait(train, epoch)
             # CASE 2 - loading
@@ -99,6 +105,54 @@ class TrainSystem:
 
     def state(self):
         return np.concatenate(self.load, self.location, self.platform, np.array(self.time), axis=0)
+    
+    
+    def speed_policy_reward_1(self,train,eff_move_time):
+        if(train<self.gen.trains-1):
+            #current train variables:
+            curr_train_loc=self.location[train]
+            curr_train_speed=(self.gen.speed_kmh / units.hour) + self.agent_speed[train]
+            curr_train_station = self.states[train].station
+            #next train variables:
+            next_train_loc=self.location[train+1]
+            next_train_speed=(self.gen.speed_kmh / units.hour) + self.agent_speed[train+1]
+            next_train_state = self.states[train+1].state
+            next_train_station=self.states[train+1].station
+            
+            if(next_train_state==states.MOVING and curr_train_station==next_train_station):
+                if(curr_train_loc+eff_move_time*curr_train_speed > next_train_loc + eff_move_time*next_train_speed):
+                    self.step_reward -= self.gen.trains #TODO: negative reward for example, ask Ayal
+                else:
+                    self.step_reward += 1 #TODO: positive reward for example, ask Ayal
+                    
+    def speed_policy_reward_2(self,train,eff_move_time,epoch,stations_distance): 
+        #TODO: added 14.3.23 , we might need to save "full epoch" in self.variable to calculate some relative conditions such as that.
+        curr_train_speed=(self.gen.speed_kmh / units.hour) + self.agent_speed[train]
+        potential_distance=eff_move_time*curr_train_speed
+        if(potential_distance > stations_distance * (eff_move_time)/epoch):
+            self.step_reward -= self.gen.trains
+        else:
+            self.step_reward += 1
+            
+    #def speed_policy_reward_3 (self,train,eff_move_time):
+        #I think it might be like reward_2 but with negative speed. Should think about it
+        
+    
+    def speed_rewarding(self,train,eff_move_time):
+        #It may be relevant only when current train is MOVING so all these kind of rewardings should be gathered here as for now
+        
+        #One train can't pass another one while moving:
+        self.speed_policy_reward_1(train,eff_move_time) 
+        #.... need to think about more cases ... 
+        #Can't cover a distance greater than distance of two adjacent stations in one epoch: (relative)
+        self
+        
+        
+    def get_step_reward(self):
+        #TODO: as far as I concerned,  there is some memory for rewards in PPO
+        episode_reward=self.step_reward
+        self.step_reward=0 #reset, prepare it for the next episode
+        return episode_reward
 
 
 import torch
@@ -106,4 +160,3 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import gym
-
