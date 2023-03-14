@@ -1,5 +1,5 @@
 from train_system import *
-
+from agent import *
 '''
 TODO : 
 I noticed some problems:
@@ -44,13 +44,16 @@ g.assert_results(g.sol.x, min_error=0.2)
 Tsol, Lsol, Psol = g.extract(g.sol.x)
 
 sys = TrainSystem(Tsol, Lsol, Psol, g)
+agent=DummyAgent(sys.gen.trains)
+
 noise = False
 for i in range(1):
     x = 0
     for t in range(600000):
-        epoch = 1
+        epoch = 200
         train = 1
         a = sys.states[train].state
+        sys.agent_speed=agent.update_speed_vector(sys.states)
         st = "WAITING FOR FIRST DEPART" if a == 0 else (
             "UNLOADING" if a == 1 else (
                 "LOADING" if a == 2 else ("MOVING" if a == 3 else ("FINISHED" if a == 4 else "ERROR"))))
