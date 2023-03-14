@@ -19,7 +19,7 @@ class TrainSystem:
         self.platform = np.zeros(gen.stations)
         self.agent_speed = np.zeros(gen.trains)
         self.start_time = [T[train, 0] - L[train, 0] * self.gen.beta[0] for train in range(self.gen.trains)]
-
+        
     def reset(self):
         self.time = 21600  # 6:00AM
         self.location = np.zeros(self.gen.trains)
@@ -65,16 +65,19 @@ class TrainSystem:
     def Move(self, train, effective_epoch):
         self.states[train].state = states.MOVING
         speed = (self.gen.speed_kmh / units.hour) + self.agent_speed[train]
-        if effective_epoch > 0:
-            potential_move = effective_epoch * speed
-            max_move = (10 - (self.location[train]) % 10)
-            moving_distance = min(potential_move, max_move)
-            moving_time = moving_distance / speed
-            self.location[train] += moving_distance
-            if potential_move >= max_move:
-                self.states[train].station += 1
-                self.load_before_alight[train] = self.load[train]
-                self.Unload(train, effective_epoch - moving_time)
+        if(self.states[train].station==self.gen.stations-1):
+            self.states[train].state = states.FINISHED
+        else:
+            if effective_epoch > 0:
+                potential_move = effective_epoch * speed
+                max_move = (10 - (self.location[train]) % 10)
+                moving_distance = min(potential_move, max_move)
+                moving_time = moving_distance / speed
+                self.location[train] += moving_distance
+                if potential_move >= max_move:
+                    self.states[train].station += 1
+                    self.load_before_alight[train] = self.load[train]
+                    self.Unload(train, effective_epoch - moving_time)
 
     def step(self, epoch=60, noise=0):
         self.time = self.time + epoch
@@ -85,6 +88,7 @@ class TrainSystem:
             # CASE 0 - Finished
             if self.states[train].state == states.MOVING and self.states[train].station == self.gen.stations - 1:
                 self.states[train].state = states.FINISHED
+                print("Train")
             elif self.states[train].state == states.WAITING_FOR_FIRST_DEPART:
                 self.Wait(train, epoch)
             # CASE 2 - loading
@@ -99,11 +103,11 @@ class TrainSystem:
 
     def state(self):
         return np.concatenate(self.load, self.location, self.platform, np.array(self.time), axis=0)
-
+    
+                       
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import gym
-
